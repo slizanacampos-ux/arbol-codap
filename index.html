@@ -429,6 +429,9 @@
           "Conectado con CODAP. Las decisiones se guardarán automáticamente.",
           "conectado"
         );
+        setTimeout(function() {
+  document.getElementById("estadoCodap").style.display = "none";
+}, 1200);
         return procesarCola();
       })
       .catch(function(error) {
