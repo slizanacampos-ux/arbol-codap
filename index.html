@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>Árbol de decisiones</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --azul: #526d82;
+      --azul-oscuro: #27374d;
+      --fondo: #eef2f5;
+      --borde: #cfd8dc;
+      --verde-fondo: #e8f5e9;
+      --verde-texto: #2e7d32;
+      --amarillo-fondo: #fff3cd;
+      --amarillo-texto: #856404;
+      --rojo-fondo: #ffebee;
+      --rojo-texto: #b71c1c;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 20px;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--fondo);
+      color: #263238;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .contenedor {
+      width: 100%;
+      max-width: 760px;
+      padding: 28px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    .estado-codap {
+      margin-bottom: 20px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--amarillo-fondo);
+      color: var(--amarillo-texto);
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .estado-codap.conectado {
+      background: var(--verde-fondo);
+      color: var(--verde-texto);
+    }
+
+    .estado-codap.error {
+      background: var(--rojo-fondo);
+      color: var(--rojo-texto);
+    }
+
+    .etiqueta {
+      margin-bottom: 10px;
+      color: var(--azul);
+      font-size: 14px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      color: var(--azul-oscuro);
+      font-size: 28px;
+    }
+
+    .pregunta {
+      margin-bottom: 26px;
+      font-size: 19px;
+      line-height: 1.55;
+    }
+
+    .opciones {
+      display: grid;
+      gap: 14px;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px 16px;
+      border: 2px solid var(--azul);
+      border-radius: 10px;
+      background: #ffffff;
+      color: #263238;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--azul);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .resultado {
+      padding: 18px;
+      border-left: 5px solid var(--azul);
+      border-radius: 10px;
+      background: #e8f1f5;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .recorrido {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--borde);
+    }
+
+    .recorrido h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .recorrido ol {
+      margin: 0;
+      padding-left: 22px;
+      line-height: 1.7;
+    }
+
+    .justificacion {
+      margin-top: 24px;
+    }
+
+    .justificacion label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 17px;
+      font-weight: bold;
+    }
+
+    .justificacion textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 14px;
+      border: 2px solid #b0bec5;
+      border-radius: 10px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      resize: vertical;
+    }
+
+    .justificacion textarea:focus {
+      border-color: var(--azul);
+      outline: none;
+    }
+
+    .boton-principal {
+      margin-top: 16px;
+      background: var(--azul);
+      color: #ffffff;
+    }
+
+    .boton-secundario {
+      margin-top: 12px;
+    }
+
+    .mensaje {
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+
+    .mensaje.exito {
+      display: block;
+      background: var(--verde-fondo);
+      color: var(--verde-texto);
+    }
+
+    .mensaje.error {
+      display: block;
+      background: var(--rojo-fondo);
+      color: var(--rojo-texto);
+    }
+
+    .detalle-sesion {
+      margin-top: 20px;
+      color: #607d8b;
+      font-size: 12px;
+      text-align: right;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="contenedor">
+    <div id="estadoCodap" class="estado-codap">
+      Conectando con CODAP...
+    </div>
+
+    <div id="contenido"></div>
+  </main>
+
+  <!-- Bibliotecas oficiales utilizadas por los plugins estáticos de CODAP -->
+  <script src="https://concord-consortium.github.io/codap-data-interactives/Common/js/iframe-phone.js"></script>
+  <script src="https://concord-consortium.github.io/codap-data-interactives/Common/js/CodapInterface.js"></script>
+
+  <script>
+    "use strict";
+
+    /* =========================================================
+       1. CONFIGURACIÓN DE CODAP
+       ========================================================= */
+
+    const NOMBRE_PLUGIN = "ArbolDecisionesPlugin";
+    const TITULO_PLUGIN = "Árbol de decisiones";
+    const NOMBRE_CONTEXTO = "ArbolDecisionesV2";
+    const NOMBRE_COLECCION = "Decisiones";
+    const NOMBRE_TABLA = "TablaDecisionesArbolV2";
+
+    const plantillaDatos = {
+      name: NOMBRE_CONTEXTO,
+      title: "Datos del árbol de decisiones",
+      collections: [
+        {
+          name: NOMBRE_COLECCION,
+          title: "Decisiones",
+          attrs: [
+            { name: "Sesion", type: "categorical" },
+            { name: "TipoRegistro", type: "categorical" },
+            { name: "Paso", type: "numeric" },
+            { name: "Nodo", type: "categorical" },
+            { name: "Pregunta", type: "categorical" },
+            { name: "Eleccion", type: "categorical" },
+            { name: "NodoSiguiente", type: "categorical" },
+            { name: "ResultadoFinal", type: "categorical" },
+            { name: "RutaCompleta", type: "categorical" },
+            { name: "Justificacion", type: "categorical" },
+            { name: "TiempoSegundos", type: "numeric" },
+            { name: "FechaHora", type: "date" }
+          ]
+        }
+      ]
+    };
+
+    let codapListo = false;
+    let colaRegistros = [];
+    let enviandoCola = false;
+
+    function mostrarEstadoCodap(mensaje, tipo) {
+      const estado = document.getElementById("estadoCodap");
+      estado.textContent = mensaje;
+      estado.className = "estado-codap";
+
+      if (tipo) {
+        estado.classList.add(tipo);
+      }
+    }
+
+    function obtenerContextoDeDatos() {
+      return codapInterface.sendRequest({
+        action: "get",
+        resource: "dataContext[" + NOMBRE_CONTEXTO + "]"
+      });
+    }
+
+    function crearContextoDeDatos() {
+      return codapInterface.sendRequest({
+        action: "create",
+        resource: "dataContext",
+        values: plantillaDatos
+      });
+    }
+
+    function asegurarContextoDeDatos() {
+      return obtenerContextoDeDatos().then(function(resultado) {
+        if (resultado && resultado.success) {
+          return resultado;
+        }
+
+        return crearContextoDeDatos().then(function(resultadoCreacion) {
+          if (!resultadoCreacion || !resultadoCreacion.success) {
+            throw new Error("CODAP no pudo crear el contexto de datos.");
+          }
+
+          return resultadoCreacion;
+        });
+      });
+    }
+
+    function asegurarTabla() {
+      return codapInterface.sendRequest({
+        action: "get",
+        resource: "componentList"
+      }).then(function(resultado) {
+        if (!resultado || !resultado.success) {
+          throw new Error("No se pudo consultar la lista de componentes.");
+        }
+
+        const componentes = Array.isArray(resultado.values)
+          ? resultado.values
+          : [];
+
+        const tablaYaExiste = componentes.some(function(componente) {
+          return (
+            componente.type === "caseTable" &&
+            (
+              componente.name === NOMBRE_TABLA ||
+              componente.title === "Decisiones del árbol" ||
+              componente.dataContext === NOMBRE_CONTEXTO
+            )
+          );
+        });
+
+        if (tablaYaExiste) {
+          return resultado;
+        }
+
+        return codapInterface.sendRequest({
+          action: "create",
+          resource: "component",
+          values: {
+            type: "caseTable",
+            name: NOMBRE_TABLA,
+            title: "Decisiones del árbol",
+            dataContext: NOMBRE_CONTEXTO
+          }
+        }).then(function(resultadoTabla) {
+          if (!resultadoTabla || !resultadoTabla.success) {
+            throw new Error("CODAP no pudo crear la tabla.");
+          }
+
+          return resultadoTabla;
+        });
+      });
+    }
+
+    function enviarRegistroAhora(registro) {
+      return codapInterface.sendRequest({
+        action: "create",
+        resource: "dataContext[" + NOMBRE_CONTEXTO + "].item",
+        values: [registro]
+      }).then(function(resultado) {
+        if (!resultado || !resultado.success) {
+          throw new Error("CODAP rechazó el registro.");
+        }
+
+        return resultado;
+      });
+    }
+
+    function agregarRegistroACola(registro) {
+      colaRegistros.push(registro);
+      procesarCola();
+    }
+
+    function procesarCola() {
+      if (!codapListo || enviandoCola || colaRegistros.length === 0) {
+        return Promise.resolve();
+      }
+
+      enviandoCola = true;
+      const registro = colaRegistros[0];
+
+      return enviarRegistroAhora(registro)
+        .then(function() {
+          colaRegistros.shift();
+          enviandoCola = false;
+          return procesarCola();
+        })
+        .catch(function(error) {
+          enviandoCola = false;
+          console.error("Error al guardar en CODAP:", error);
+          mostrarEstadoCodap(
+            "Conectado, pero ocurrió un error al guardar un registro.",
+            "error"
+          );
+          throw error;
+        });
+    }
+
+    function iniciarCodap() {
+      if (typeof codapInterface === "undefined") {
+        mostrarEstadoCodap(
+          "No fue posible cargar las bibliotecas de CODAP.",
+          "error"
+        );
+        return;
+      }
+
+      codapInterface.init({
+        name: NOMBRE_PLUGIN,
+        title: TITULO_PLUGIN,
+        dimensions: {
+          width: 790,
+          height: 720
+        },
+        version: "1.0"
+      })
+      .then(function() {
+        mostrarEstadoCodap("Preparando la tabla de datos...");
+        return asegurarContextoDeDatos();
+      })
+      .then(function() {
+        return asegurarTabla();
+      })
+      .then(function() {
+        codapListo = true;
+        mostrarEstadoCodap(
+          "Conectado con CODAP. Las decisiones se guardarán automáticamente.",
+          "conectado"
+        );
+        return procesarCola();
+      })
+      .catch(function(error) {
+        console.error("Error al iniciar CODAP:", error);
+        mostrarEstadoCodap(
+          "No fue posible preparar la conexión o la tabla de CODAP.",
+          "error"
+        );
+      });
+
+      setTimeout(function() {
+        if (!codapListo) {
+          const conexionActiva =
+            typeof codapInterface.getConnectionState === "function" &&
+            codapInterface.getConnectionState() === "active";
+
+          if (!conexionActiva) {
+            mostrarEstadoCodap(
+              "Esta página debe abrirse dentro de CODAP.",
+              "error"
+            );
+          }
+        }
+      }, 6000);
+    }
+
+    /* =========================================================
+       2. CONTENIDO DEL ÁRBOL
+       Para cambiar preguntas o ramas, modifica este objeto.
+       ========================================================= */
+
+    const arbol = {
+      inicio: {
+        tipo: "decision",
+        etiqueta: "Decisión 1",
+        titulo: "Elección inicial",
+        pregunta:
+          "Tienes que elegir uno de dos programas para comenzar la revisión. ¿Cuál revisarías primero?",
+        opciones: [
+          {
+            texto: "Revisar el programa A",
+            siguiente: "programaA"
+          },
+          {
+            texto: "Revisar el programa B",
+            siguiente: "programaB"
+          }
+        ]
+      },
+
+      programaA: {
+        tipo: "decision",
+        etiqueta: "Decisión 2",
+        titulo: "Revisión del programa A",
+        pregunta:
+          "El programa A presenta resultados variables en una muestra pequeña. ¿Qué harías ahora?",
+        opciones: [
+          {
+            texto: "Solicitar una muestra más grande",
+            siguiente: "muestraGrandeA"
+          },
+          {
+            texto: "Mantener la revisión con los datos disponibles",
+            siguiente: "resultadoA"
+          }
+        ]
+      },
+
+      programaB: {
+        tipo: "decision",
+        etiqueta: "Decisión 2",
+        titulo: "Revisión del programa B",
+        pregunta:
+          "El programa B presenta resultados bastante regulares. ¿Qué harías ahora?",
+        opciones: [
+          {
+            texto: "Compararlo con el programa A",
+            siguiente: "comparacion"
+          },
+          {
+            texto: "Continuar solamente con el programa B",
+            siguiente: "resultadoB"
+          }
+        ]
+      },
+
+      muestraGrandeA: {
+        tipo: "decision",
+        etiqueta: "Decisión 3",
+        titulo: "Nueva evidencia",
+        pregunta:
+          "La muestra ampliada confirma que los resultados del programa A son variables. ¿Qué decisión tomarías?",
+        opciones: [
+          {
+            texto: "Revisar finalmente el programa A",
+            siguiente: "resultadoA"
+          },
+          {
+            texto: "Cambiar y revisar el programa B",
+            siguiente: "resultadoB"
+          }
+        ]
+      },
+
+      comparacion: {
+        tipo: "decision",
+        etiqueta: "Decisión 3",
+        titulo: "Comparación de programas",
+        pregunta:
+          "Después de comparar ambos programas, el programa A presenta mayor variabilidad. ¿Cuál revisarías?",
+        opciones: [
+          {
+            texto: "Revisar el programa A",
+            siguiente: "resultadoA"
+          },
+          {
+            texto: "Revisar el programa B",
+            siguiente: "resultadoB"
+          }
+        ]
+      },
+
+      resultadoA: {
+        tipo: "final",
+        etiqueta: "Nodo final",
+        titulo: "Resultado final",
+        mensaje: "Has decidido revisar el programa A."
+      },
+
+      resultadoB: {
+        tipo: "final",
+        etiqueta: "Nodo final",
+        titulo: "Resultado final",
+        mensaje: "Has decidido revisar el programa B."
+      }
+    };
+
+    /* =========================================================
+       3. ESTADO Y NAVEGACIÓN
+       ========================================================= */
+
+    let nodoActual = "inicio";
+    let recorrido = [];
+    let idSesion = crearIdSesion();
+    let inicioNodo = Date.now();
+    let resultadoFinalGuardado = false;
+
+    function crearIdSesion() {
+      const parteAleatoria = Math.random()
+        .toString(36)
+        .slice(2, 8)
+        .toUpperCase();
+
+      return "S-" + Date.now() + "-" + parteAleatoria;
+    }
+
+    function fechaHoraISO() {
+      return new Date().toISOString();
+    }
+
+    function tiempoEnNodo() {
+      return Number(((Date.now() - inicioNodo) / 1000).toFixed(2));
+    }
+
+    function escaparHTML(valor) {
+      return String(valor)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function crearRecorridoHTML() {
+      if (recorrido.length === 0) {
+        return "";
+      }
+
+      const elementos = recorrido
+        .map(function(decision) {
+          return "<li>" + escaparHTML(decision.eleccion) + "</li>";
+        })
+        .join("");
+
+      return `
+        <section class="recorrido">
+          <h2>Recorrido realizado</h2>
+          <ol>${elementos}</ol>
+        </section>
+      `;
+    }
+
+    function mostrarNodo() {
+      const nodo = arbol[nodoActual];
+      const contenido = document.getElementById("contenido");
+
+      if (!nodo) {
+        contenido.innerHTML = `
+          <div class="mensaje error">
+            El nodo "${escaparHTML(nodoActual)}" no existe en el árbol.
+          </div>
+        `;
+        return;
+      }
+
+      inicioNodo = Date.now();
+
+      if (nodo.tipo === "decision") {
+        contenido.innerHTML = `
+          <div class="etiqueta">${escaparHTML(nodo.etiqueta)}</div>
+          <h1>${escaparHTML(nodo.titulo)}</h1>
+          <p class="pregunta">${escaparHTML(nodo.pregunta)}</p>
+
+          <div class="opciones" id="opciones"></div>
+
+          ${crearRecorridoHTML()}
+
+          <div class="detalle-sesion">
+            Sesión: ${escaparHTML(idSesion)}
+          </div>
+        `;
+
+        const contenedorOpciones = document.getElementById("opciones");
+
+        nodo.opciones.forEach(function(opcion) {
+          const boton = document.createElement("button");
+          boton.type = "button";
+          boton.textContent = opcion.texto;
+
+          boton.addEventListener("click", function() {
+            elegirOpcion(opcion);
+          });
+
+          contenedorOpciones.appendChild(boton);
+        });
+
+        return;
+      }
+
+      if (nodo.tipo === "final") {
+        contenido.innerHTML = `
+          <div class="etiqueta">${escaparHTML(nodo.etiqueta)}</div>
+          <h1>${escaparHTML(nodo.titulo)}</h1>
+
+          <div class="resultado">
+            ${escaparHTML(nodo.mensaje)}
+          </div>
+
+          ${crearRecorridoHTML()}
+
+          <section class="justificacion">
+            <label for="textoJustificacion">
+              Explica por qué llegaste a esta decisión final:
+            </label>
+
+            <textarea
+              id="textoJustificacion"
+              placeholder="Escribe aquí tu justificación..."
+            ></textarea>
+
+            <button
+              id="botonGuardarFinal"
+              class="boton-principal"
+              type="button"
+            >
+              Guardar resultado final
+            </button>
+
+            <div id="mensajeFinal" class="mensaje"></div>
+          </section>
+
+          <button
+            id="botonReiniciar"
+            class="boton-secundario"
+            type="button"
+          >
+            Comenzar nuevamente
+          </button>
+
+          <div class="detalle-sesion">
+            Sesión: ${escaparHTML(idSesion)}
+          </div>
+        `;
+
+        document
+          .getElementById("botonGuardarFinal")
+          .addEventListener("click", guardarResultadoFinal);
+
+        document
+          .getElementById("botonReiniciar")
+          .addEventListener("click", reiniciarArbol);
+      }
+    }
+
+    function elegirOpcion(opcion) {
+      const nodo = arbol[nodoActual];
+      const idNodo = nodoActual;
+      const numeroPaso = recorrido.length + 1;
+      const segundos = tiempoEnNodo();
+
+      const decision = {
+        paso: numeroPaso,
+        nodo: idNodo,
+        pregunta: nodo.pregunta,
+        eleccion: opcion.texto,
+        siguiente: opcion.siguiente,
+        tiempoSegundos: segundos
+      };
+
+      recorrido.push(decision);
+
+      agregarRegistroACola({
+        Sesion: idSesion,
+        TipoRegistro: "Decision",
+        Paso: numeroPaso,
+        Nodo: idNodo,
+        Pregunta: nodo.pregunta,
+        Eleccion: opcion.texto,
+        NodoSiguiente: opcion.siguiente,
+        ResultadoFinal: "",
+        RutaCompleta: "",
+        Justificacion: "",
+        TiempoSegundos: segundos,
+        FechaHora: fechaHoraISO()
+      });
+
+      nodoActual = opcion.siguiente;
+      mostrarNodo();
+    }
+
+    function guardarResultadoFinal() {
+      const textarea = document.getElementById("textoJustificacion");
+      const boton = document.getElementById("botonGuardarFinal");
+      const mensaje = document.getElementById("mensajeFinal");
+      const justificacion = textarea.value.trim();
+
+      mensaje.className = "mensaje";
+      mensaje.textContent = "";
+
+      if (resultadoFinalGuardado) {
+        mensaje.textContent = "Este resultado ya fue guardado.";
+        mensaje.classList.add("exito");
+        return;
+      }
+
+      if (justificacion.length < 3) {
+        mensaje.textContent =
+          "Escribe una justificación antes de guardar.";
+        mensaje.classList.add("error");
+        textarea.focus();
+        return;
+      }
+
+      const nodoFinal = arbol[nodoActual];
+      const rutaCompleta = recorrido
+        .map(function(decision) {
+          return decision.eleccion;
+        })
+        .join(" → ");
+
+      boton.disabled = true;
+      boton.textContent = "Guardando...";
+
+      const registroFinal = {
+        Sesion: idSesion,
+        TipoRegistro: "ResultadoFinal",
+        Paso: recorrido.length + 1,
+        Nodo: nodoActual,
+        Pregunta: "Justificación de la decisión final",
+        Eleccion: "",
+        NodoSiguiente: "FIN",
+        ResultadoFinal: nodoFinal.mensaje,
+        RutaCompleta: rutaCompleta,
+        Justificacion: justificacion,
+        TiempoSegundos: tiempoEnNodo(),
+        FechaHora: fechaHoraISO()
+      };
+
+      agregarRegistroACola(registroFinal);
+
+      /* Espera a que la cola termine para confirmar el guardado. */
+      esperarColaVacia()
+        .then(function() {
+          resultadoFinalGuardado = true;
+          textarea.disabled = true;
+          boton.textContent = "Resultado guardado";
+          mensaje.textContent =
+            "Resultado final guardado correctamente en CODAP.";
+          mensaje.classList.add("exito");
+        })
+        .catch(function(error) {
+          console.error(error);
+          boton.disabled = false;
+          boton.textContent = "Guardar resultado final";
+          mensaje.textContent =
+            "No se pudo guardar. Revisa la conexión con CODAP e inténtalo nuevamente.";
+          mensaje.classList.add("error");
+        });
+    }
+
+    function esperarColaVacia() {
+      return new Promise(function(resolve, reject) {
+        let intentos = 0;
+        const maximoIntentos = 100;
+
+        const intervalo = setInterval(function() {
+          intentos += 1;
+
+          if (colaRegistros.length === 0 && !enviandoCola) {
+            clearInterval(intervalo);
+            resolve();
+            return;
+          }
+
+          if (intentos >= maximoIntentos) {
+            clearInterval(intervalo);
+            reject(new Error("Tiempo de espera agotado."));
+          }
+        }, 100);
+      });
+    }
+
+    function reiniciarArbol() {
+      nodoActual = "inicio";
+      recorrido = [];
+      idSesion = crearIdSesion();
+      resultadoFinalGuardado = false;
+      mostrarNodo();
+    }
+
+    /* =========================================================
+       4. INICIO DE LA APLICACIÓN
+       ========================================================= */
+
+    mostrarNodo();
+    iniciarCodap();
+  </script>
+</body>
+</html>
